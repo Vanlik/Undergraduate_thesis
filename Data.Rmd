@@ -1,0 +1,149 @@
+---
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figures/', echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+
+```{r include=FALSE}
+# wd = "/Users/vanliktan/Desktop/V_LIK\ desktop\ /Undergrad_thesis/ES\ data/data"
+# if (getwd() != wd) {
+#   setwd(wd)
+# } else {next}
+setwd("/Users/vanliktan/Desktop/V_LIK\ desktop\ /Undergrad_thesis/ES\ data/data")
+
+#Libs----------------------------------------------------------
+library(tidyverse)
+library(dplyr) #for data manipulation
+library(rddtools) #for rdd est
+library(plyr)
+library(data.table) # data manipu.
+library(knitr) #for making table
+library(ggplot2) # for graph
+library(foreign)
+library(stargazer)
+library(table1) # for descriptive table : https://thatdatatho.com/2018/08/20/easily-create-descriptive-summary-statistic-tables-r-studio/
+library(xtable) 
+#load package plm for panel data 
+library(plm)
+library(lmtest)
+library(sandwich) #robust check
+#select subset of R dataframe
+es_2016 <- as_tibble(read.dta("Cambodia-2016-full data.dta"))
+es_2013 <- as_tibble(read.dta("Cambodia-2013-full data.dta"))
+```
+
+<!-- #Cross-section 2016 -->
+```{r include=FALSE}
+#*Cross-section 2016----------------------------------------------------------
+
+#variables in interests
+# l5 = num_female
+# l10 = for_train
+#   _2016_b7a = female manager
+# e6 = foreign_tech
+#b5 = year establishment
+#f1 = capacity utilization exact_output/max_output (some Na)
+
+#Rename columns
+es_2016 <- es_2016 %>% mutate(firm_size_std = ifelse(es_2016$l1 <10, "micro", ifelse(es_2016$l1 <50, "small", ifelse(es_2016$l1 <100, "medium", "large")))) # create new variables: firm_size_std follow the official doc
+names(es_2016)[names(es_2016) == "idstd"] <- "firm_id"  #same firm_id use idstd2016
+names(es_2016)[names(es_2016) == "l1"] <- "num_labor" 
+names(es_2016)[names(es_2016) == "d2"] <- "ann_sales"
+names(es_2016)[names(es_2016) == "l5"] <- "num_female_labor" 
+names(es_2016)[names(es_2016) == "l10"] <- "formal_train" 
+names(es_2016)[names(es_2016) == "a7"] <- "of_largefirm" 
+names(es_2016)[names(es_2016) == "e6"] <- "foreign_tech" 
+#only 2016 crossection
+names(es_2016)[names(es_2016) == "eah15"] <- "formal_train_last3y" 
+names(es_2016)[names(es_2016) == "eah16"] <- "foreign_tech_last3y" 
+names(es_2016)[names(es_2016) == "b7a"] <- "female_exec" #in that particular year
+names(es_2016)[names(es_2016) == "a3a"] <- "samp_region"
+names(es_2016)[names(es_2016) == "a0"] <- "samp_industry"
+#Inno
+#product inno.
+names(es_2016)[names(es_2016) == "h1"] <- "pro_new_last3y" #pro= product
+#process inno.
+names(es_2016)[names(es_2016) == "h3"] <- "impro_method" # impro= improvement on process 
+#impact
+names(es_2016)[names(es_2016) == "eah12a"] <- "impro_automation"
+#marketing inno.
+names(es_2016)[names(es_2016) == "h6"] <- "mar_method"
+names(es_2016)[names(es_2016) == "h7"] <- "r.d"
+names(es_2016)[names(es_2016) == "eal5a1"] <- "skilled_labor" #plot this 
+names(es_2016)[names(es_2016) == "l9b"] <- "pct_highschool_grad"
+
+```
+
+# Data
+
+I use the World Bank Enterprise Survey data (ES data) which covers Cambodia in the period of 2013 and 2016. The ES currently cover over 155,000 firms in 148 countries, of which 139 have been surveyed following the standard methodology. This allows for better comparisons across countries and across time. Data are used to create statistically significant business environment indicators that are comparable across countries. The ES are also used to build a panel of enterprise data that will make it possible to track changes in the business environment over time and allow, for example, impact assessments of reforms. 
+
+The survey was conducted in three separate years: 2007, 2013-2016, covering a whole details of information about SMEs business in Cambodia. Those standard factors include firm characteristics, gender participation, access to finance, annual sales, costs of inputs/labor, workforce composition, bribery, licensing, infrastructure, trade, crime, competition, capacity utilization, land and permits, taxation, informality, business-government relations, innovation and technology, and performance measures (World Bnak, 2016)^[Technical note is available [here.](http://www.enterprisesurveys.org/%7E/media/GIAWB/EnterpriseSurveys/Documents/Methodology/Sampling_Note.pdf)
+]. This paper, however, focuses on only 2016, and the panel 2013-2016.
+
+## Descriptive Statisics
+
+ES data Cambodia 2016 comprise of 373 firms respectively. The samples were selected using stratified random sampling where industry, location and establishment's firm size are the levels of stratification. Industry stratification was designed in the way that follows: the universe was stratified into one manufacturing industry and two services industries- Manufacturing (ISIC 3.1 codes 15 - 37), Retail (ISIC code 52), and Other Services (ISIC codes 45, 50, 51, 55, 60-64, and 72). The regions are Phnom Penh, Plains, Mountains, Coastal and Tonle Sap. As for firm size, I follow the Cambodian government official definition where firms that have number of employees of less than 50 are considered small; less than 100 is medium^[See  [https://www.unescap.org/sites/default/files/SME%20Financing-Chhea%20Layhy%202019.pdf](https://www.unescap.org/sites/default/files/SME%20Financing-Chhea%20Layhy%202019.pdf)]. 
+
+```{r include=FALSE}
+### Crossection 2016-----------------------------------------------------------------------------------
+#make dummy
+es_2016 <- es_2016 %>% mutate(formal_train_last3y =ifelse(formal_train_last3y == 'Yes', 1,0))
+#formal_train_last3y <- es_1316.inno$formal_train_last3y[es_1316.inno$year =='2016']
+es_2016 <- es_2016 %>% mutate(foreign_tech_last3y =ifelse(foreign_tech_last3y == 'Yes', 1,0))
+#foreign_tech_last3y <- es_1316.inno$foreign_tech_last3y[es_1316.inno$year =='2016']
+#female
+es_2016 <- es_2016 %>% mutate(female_exec =ifelse(female_exec == 'Yes', 1, 0)) # if either one of these is Yes
+#foreign_tech_2013 <- es_1316.inno$foreign_tech[es_1316.inno$year =='2013']
+#female_exec_2016 <- es_1316.inno$female_exec[es_1316.inno$year =='2016']
+
+es_2016 <- es_2016 %>% mutate(pro_new_last3y =ifelse(pro_new_last3y == 'Yes', 1, 0),na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(r.d =ifelse(r.d == 'Yes', 1, 0),na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(of_largefirm =ifelse(of_largefirm == 'Yes', 1, 0),na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(impro_method =ifelse(impro_method == 'Yes', 1, 0),na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(impro_automation =ifelse(impro_automation == 'Yes', 1, 0), na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(mar_method =ifelse(mar_method == 'Yes', 1, 0), na.rm=TRUE)
+es_2016 <- es_2016 %>% mutate(inno.prox =ifelse(impro_method == 1|pro_new_last3y == 1 |impro_automation ==1|mar_method == 1|r.d ==1, 1, 0))
+es_2016[c('inno.prox')][is.na(es_2016[c('inno.prox')])] <- 0
+es_2016 <- es_2016 %>% mutate(samp_region =as.factor(samp_region),na.rm=TRUE )
+es_2016 <- es_2016 %>% mutate(samp_industry =as.factor(samp_industry),na.rm=TRUE )
+es_2016$pct_highschool_grad[es_2016$pct_highschool_grad==-9] <- 0 
+es_2016$skilled_labor[is.na(es_2016$skilled_labor)] <- 0 
+es_2016 <- es_2016 %>% mutate(num_highschool_grad = (pct_highschool_grad/100)* num_labor)
+#Visualize firms size
+firm_size_std <- as.factor(factor(es_2016$firm_size_std, levels = c("micro", "small", "medium", "large")))
+size_sum <- prop.table(table(es_2016$firm_size_std)) * 100
+```
+
+<!-- # stargazer works only with dataframe not tibble -->
+<!-- # Change variable names avoid special characters like _. Replace that ¥¥ in the front -->
+<!-- #"samp_region", "samp_industry": don't know how to include these  -->
+```{r results = "asis"}
+
+stargazer(as.data.frame(es_2016[c("num_labor","formal_train_last3y", "foreign_tech_last3y","pro_new_last3y", "impro_method", "mar_method", "r.d", "female_exec", "of_largefirm", "skilled_labor", "num_highschool_grad")]),  title="Descriptive Statistics on Selected Variables (ES data 2016)", type = 'latex', summary.logical = FALSE,covariate.labels=c("number of labor","formal training(last3y)", "foreign technology(last3y)","product innovation(last3y)", "process innovation(last3y)", "marketing innovation(last3y)", "R\\&D investment(last3y)", "female executive", "part of large firm", "number of skilled labors", "number of highschool grad"), font.size = 'small', align = TRUE, column.sep.width = '-10pt', header = FALSE, notes = c("Note: variables with (last3y) at the end refers to during the period of 3 ","years prior to 2016, has the firm been doing each particular innovation."))
+```
+
+
+
+
+The ES data 2016 consists of more than 50% that are small firms and barely 16% that are large. As far as this paper concerns, small firms are our attention. Panel data, on the other hand, comprises of only 131 eligible Micro, Small and Medium enterprises (MSMEs) from both 2013 and 2016 where some are excluded as the interviewing processes were not conducted with those particular firms. 
+
+```{r fig.width=4,fig.height=4,fig.cap= "Frequency of Firm Size (ES 2016)"}
+barplot(size_sum, xlab = "Firm size", ylab = "Proportion", ylim = c(0,50))
+```
+<!-- ![Frequency of Firm Size (ES 2016)](figure1.pdf) -->
+
+## Variables Specification
+
+Innovation used in this paper includes product, process, marketing and R&D. I code these into a dummy variable where any firms have done either one of the above activities are proxied as _engaging in innovation_, and therefore being innovative^[The reason is partly due to firms barely invest in such activities in developing countries espicially Cambodia, and if they do, they must be somehow affiliated with foreign company.]. Moreover, for the panel dataset, it is possible to define each innovative activities as number of years firms engaging in such, and find the differeces so as to apply the first difference method against number of employees (models are in the next section). 
+
+Also, it is worth noting that last 3-year variables (prior to 2016) are often used including innovation proxy variables, and formal training. This establishes the crossectional relationship that might influence innovation during the 3-year period. 
+
+
+
+
+
