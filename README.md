@@ -1,4 +1,4 @@
-# Undergraduate_thesis
+# Senior Thesis: The Effects of In-firm Training on Innovation
 
 I aim to investigate the determinants (in-firm training, number of labors) of innovation in firms in Cambodia using Enterprise Survey(ES) data in Cambodia from the World Bank. (https://www.enterprisesurveys.org/)
 
